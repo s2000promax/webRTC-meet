@@ -39,7 +39,8 @@ io.on('connection', socket => {
     }
 
     // Получаем всех клиентов в текущей комнате или пустой массив, если никого в комнате нет
-    const clients = Array.from(io.sockets.adapters.rooms.get(roomID) || []);
+    const clients = Array.from(io.sockets.adapter.rooms.get(roomID) || []);
+
     clients.forEach(clientID => {
       // Каждому клиенту отправляем ACTION.ADD_PEER -id текущего сокета и что ему не нужно создавать offer
       io.to(clientID).emit(ACTIONS.ADD_PEER, {
