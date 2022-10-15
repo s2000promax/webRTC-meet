@@ -3,6 +3,7 @@ import useStateWithCallback from './useStateWithCallback';
 import socket from '../socket';
 import ACTIONS from '../socket/actions';
 import freeice from 'freeice';
+import { logDOM } from '@testing-library/react';
 
 export const LOCAL_VIDEO = 'LOCAL_VIDEO';
 
@@ -57,8 +58,10 @@ const useWebRTC = (roomID) => {
         tracksNumber += 1; // Увеличиваем каждый раз, как приходит новый track
 
         if (tracksNumber === 2) { // ожидаем принятия audio и video !!!
+          tracksNumber = 0;
           addNewClient(peerID, () => {
             // начинаем транслировать remoteStream
+            console.log('remoteStream', remoteStream);
             peerMediaElements.current[peerID].srcObject = remoteStream;
           });
         }
@@ -66,7 +69,7 @@ const useWebRTC = (roomID) => {
 
       // Добавляем локальный стрим к нашему peerConnection
       localMediaStream.current.getTracks().forEach(track => {
-        peerConnection.current[peerID].addTrack(track, localMediaStream);
+        peerConnection.current[peerID].addTrack(track, localMediaStream.current);
       });
 
       // Если мы сторона, которая создает offer, то
@@ -74,23 +77,27 @@ const useWebRTC = (roomID) => {
         const offer = await peerConnection.current[peerID].createOffer();
 
         // Устанавливаем offer как localDescription
-        await peerConnection.current[peerID].setLocalDescription();
+        await peerConnection.current[peerID].setLocalDescription(offer);
 
         // Отправляем offer
         socket.emit(ACTIONS.RELAY_SDP, {
           peerID,
-          sessionDescription: offer
+          sessionDescription: offer,
         });
       }
     }
 
     socket.on(ACTIONS.ADD_PEER, handleNewPeer);
+
+    return () => {
+      socket.off(ACTIONS.ADD_PEER);
+    }
   }, []);
 
   // Реагируем на sessionDescription
   useEffect(() => {
-    async function setRemoteMedia({ peerID, sessionDescription: remoteDescription }) {
-      await peerConnection.current[peerID].setRemoteDescription(
+    async function setRemoteMedia({peerID, sessionDescription: remoteDescription}) {
+      await peerConnection.current[peerID]?.setRemoteDescription(
         new RTCSessionDescription(remoteDescription) // Оборачиваем констуртором RTCSessionDescription
       );
 
@@ -101,22 +108,49 @@ const useWebRTC = (roomID) => {
 
         socket.emit(ACTIONS.RELAY_SDP, {
           peerID,
-          sessionDescription: answer
+          sessionDescription: answer,
         });
       }
     }
 
     socket.on(ACTIONS.SESSION_DESCRIPTION, setRemoteMedia)
+
+    return () => {
+      socket.off(ACTIONS.SESSION_DESCRIPTION);
+    }
   }, []);
 
   // Реагируем на iceCandidate
   useEffect(() => {
-
-    socket.on(ACTIONS.ICE_CANDIDATE, ({ peerID, iceCandidate }) => {
-      peerConnection.current[peerID].addIceCandidate(
-        new RTCIceCandidate() // Оборачиваем констуртором RTCIceCandidate
+    socket.on(ACTIONS.ICE_CANDIDATE, ({peerID, iceCandidate}) => {
+      peerConnection.current[peerID]?.addIceCandidate(
+        new RTCIceCandidate(iceCandidate) // Оборачиваем констуртором RTCIceCandidate
       );
     });
+
+    return () => {
+      socket.off(ACTIONS.ICE_CANDIDATE);
+    }
+  }, []);
+
+  // Удаление соединения
+  useEffect(() => {
+    const handleRemovePeer = ({ peerID }) => {
+      if (peerConnection.current[peerID]) {
+        peerConnection.current[peerID].close();
+      }
+
+      delete peerConnection.current[peerID];
+      delete peerMediaElements.current[peerID];
+
+      updateClients(list => list.filter(client => client !== peerID));
+    }
+
+    socket.on(ACTIONS.REMOVE_PEER, handleRemovePeer);
+
+    return () => {
+      socket.off(ACTIONS.REMOVE_PEER);
+    }
   }, []);
 
   // Реагируем на изменение комнаты
