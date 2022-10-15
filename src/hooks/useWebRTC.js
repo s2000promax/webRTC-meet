@@ -161,8 +161,8 @@ const useWebRTC = (roomID) => {
       localMediaStream.current = await navigator.mediaDevices.getUserMedia({
         audio: true,
         video: {
-          width: 1280,
-          height: 720,
+          width: 320,
+          height: 200,
         }
       });
 
