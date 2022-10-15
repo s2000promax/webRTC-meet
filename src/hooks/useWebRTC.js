@@ -60,9 +60,22 @@ const useWebRTC = (roomID) => {
         if (tracksNumber === 2) { // ожидаем принятия audio и video !!!
           tracksNumber = 0;
           addNewClient(peerID, () => {
-            // начинаем транслировать remoteStream
-            console.log('remoteStream', remoteStream);
-            peerMediaElements.current[peerID].srcObject = remoteStream;
+            if (peerMediaElements.current[peerID]) {
+              // начинаем транслировать remoteStream
+              peerMediaElements.current[peerID].srcObject = remoteStream;
+            } else {
+              let settled = false;
+              const interval = setInterval(() => {
+                if (peerMediaElements.current[peerID]) {
+                  peerMediaElements.current[peerID].srcObject = remoteStream;
+                  settled = true;
+                }
+
+                if (settled) {
+                  clearInterval(interval);
+                }
+              }, 1000);
+            }
           });
         }
       }
