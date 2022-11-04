@@ -19,6 +19,8 @@ const useWebRTC = (roomID) => {
     [LOCAL_VIDEO]: null
   });
 
+  const dataChannel = useRef({});
+
   const addNewClient = useCallback((newClient, cb) => {
     updateClients(list => {
       if (!list.includes(newClient)) {
@@ -40,6 +42,13 @@ const useWebRTC = (roomID) => {
       peerConnection.current[peerID] = new RTCPeerConnection({
         iceServers: freeice()
       })
+
+      peerConnection.current[peerID].ondatachannel = event => {
+        dataChannel.current = event.channel;
+        dataChannel.current.onopen = () => console.log('Channel opened!');
+        dataChannel.current.onmessage = e => console.log('Message:', e.data);
+      }
+
 
       // Когда новый iceCandidate желает подключится. handle event. Когда мы сами создаем или offer или answer
       peerConnection.current[peerID].onicecandidate = (event) => {
@@ -87,6 +96,10 @@ const useWebRTC = (roomID) => {
 
       // Если мы сторона, которая создает offer, то
       if (createOffer) {
+        dataChannel.current = peerConnection.current[peerID].createDataChannel('data-channel');
+        dataChannel.current.onopen = () => console.log('DataChannel opened!');
+        dataChannel.current.onmessage = event => console.log('Message: ', event.data);
+
         const offer = await peerConnection.current[peerID].createOffer();
 
         // Устанавливаем offer как localDescription
@@ -206,7 +219,10 @@ const useWebRTC = (roomID) => {
     peerMediaElements.current[id] = node;
   }, []);
 
-  return { clients, provideMediaRef };
+  const handleSendMessage = () => dataChannel.current.send('My message');
+
+  console.log(dataChannel);
+  return { clients, provideMediaRef, handleSendMessage };
 }
 
 export default useWebRTC;

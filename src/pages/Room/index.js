@@ -38,9 +38,10 @@ function layout(clientsNumber = 1) {
 
 const Room = () => {
   const { id: roomID } = useParams();
-  const { clients, provideMediaRef } = useWebRTC(roomID);
+  const { clients, provideMediaRef, handleSendMessage } = useWebRTC(roomID);
   const videoLayout = layout(clients.length);
   console.log(roomID, clients);
+  console.log(handleSendMessage);
 
   return (
     <div style={{
@@ -50,6 +51,7 @@ const Room = () => {
       flexWrap: 'wrap',
       height: '100vh'
     }}>
+      <button onClick={handleSendMessage}>Send Message</button>
       {clients.map((clientID, index) => {
         return (
           <div key={clientID} style={videoLayout[index]}>

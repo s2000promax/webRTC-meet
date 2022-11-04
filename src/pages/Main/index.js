@@ -21,7 +21,7 @@ const Main = () => {
   console.log(rooms)
   return (
     <div ref={rootNode}>
-      <h1>Available Rooms</h1>\
+      <h1>Available Rooms</h1>
       <ul>
         {rooms.map(roomID => (
           <div key={`id-li-${roomID}`}>

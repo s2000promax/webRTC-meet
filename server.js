@@ -13,9 +13,11 @@ const { version, validate } = require('uuid');
 
 function getClientRooms() {
   const { rooms } = io.sockets.adapter;
+  // console.log(Array.from(rooms.keys()).filter(roomID => roomID === '0xFF'));
 
   // Оставляем id комнаты другого клиента, не себя
-  return Array.from(rooms.keys()).filter(roomID => validate(roomID) && version(roomID) === 4);
+  // return Array.from(rooms.keys()).filter(roomID => validate(roomID) && version(roomID) === 4);
+  return Array.from(rooms.keys()).filter(roomID => roomID === '0xFF');
 }
 
 function shareRoomsInfo() {
@@ -34,26 +36,29 @@ io.on('connection', socket => {
     const { room: roomID } = config;
     const { rooms: joinedRooms } = socket;
 
+    console.log('JOIN', roomID, joinedRooms);
+
     if (Array.from(joinedRooms).includes(roomID)) {
       return console.warn(`Already joined to ${roomID}`)
     }
 
     // Получаем всех клиентов в текущей комнате или пустой массив, если никого в комнате нет
     const clients = Array.from(io.sockets.adapter.rooms.get(roomID) || []);
+    console.log(clients);
 
     clients.forEach(clientID => {
+      // текущему сокету отправляем ACTION.ADD_PEER - id текущего КЛИЕНТА и что ему нужно создать offer
+      socket.emit(ACTIONS.ADD_PEER, {
+        peerID: clientID,
+        createOffer: true
+      });
+
       // Каждому клиенту отправляем ACTION.ADD_PEER -id текущего сокета и что ему не нужно создавать offer
       io.to(clientID).emit(ACTIONS.ADD_PEER, {
         peerID: socket.id,
         createOffer: false
       });
 
-      // текущему сокету отправляем ACTION.ADD_PEER - id текущего КЛИЕНТА и что ему нужно создать offer
-      // offer создает та сторона, которая подключается в комнату
-      socket.emit(ACTIONS.ADD_PEER, {
-        peerID: clientID,
-        createOffer: true
-      })
     });
 
     // Подключаемся к комнате
@@ -92,17 +97,24 @@ io.on('connection', socket => {
   socket.on('disconnecting', leaveRoom);
 
   socket.on(ACTIONS.RELAY_SDP, ({ peerID, sessionDescription }) => {
+    console.log('SDP:', peerID);
     io.to(peerID).emit(ACTIONS.SESSION_DESCRIPTION, {
       peerID: socket.id,
       sessionDescription
     });
+
   });
 
   socket.on(ACTIONS.RELAY_ICE, ({ peerID, iceCandidate }) => {
+    console.log('ICE:', peerID);
     io.to(peerID).emit(ACTIONS.ICE_CANDIDATE, {
       peerID: socket.id,
       iceCandidate
     });
+  });
+
+  socket.on('data-channel', ({ peerID, dataChannel }) => {
+    console.log('data-channel:', peerID);
   });
 
 
